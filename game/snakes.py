@@ -124,6 +124,10 @@ class Game:
         for i in range(1, self.snake.length):
             if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
                 raise "Game Over"
+            
+        # snake go out of bounds
+        if self.snake.x[0] <= 0 or self.snake.y[0] <= 0 or self.snake.x[0] >= self.screen_size[0] or self.snake.y[0] >= self.screen_size[1]:
+            raise "Game Over"
 
     def display_score(self):
         font = pygame.font.SysFont('arial', 30)
@@ -148,6 +152,7 @@ class Game:
     def reset(self):
         self.snake = Snake(self.surface, self.screen_size, self.block_size, 2)
         self.food = Food(self.surface, self.screen_size, self.block_size)
+        self.score = 0
 
     def run(self):
         running = True
