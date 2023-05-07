@@ -6,8 +6,8 @@ import random
 class Food:
     def __init__(self, parent_screen, screen_size, block_size):
         self.parent_screen = parent_screen
-        self.x = block_size[0] * 3
-        self.y = block_size[1] * 3
+        self.x = block_size[0] * random.randint(1, screen_size[0]//block_size[0] -1)
+        self.y = block_size[1] * random.randint(1, screen_size[1]//block_size[1] -1)
         self.screen_size = screen_size
         self.block_size = block_size
     
@@ -114,38 +114,78 @@ class Game:
         self.display_score()
         pygame.display.flip()
 
+        # snake eating apple
         if self.is_collision(self.snake.x[0], self.snake.y[0], self.food.x, self.food.y):
             self.snake.increase_length()
             self.food.move()
             self.score += 1
+
+        # snake hit itself
+        for i in range(1, self.snake.length):
+            if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
+                raise "Game Over"
 
     def display_score(self):
         font = pygame.font.SysFont('arial', 30)
         score = font.render(f"Score: {self.score}", True, (255, 255, 255))
         self.surface.blit(score, (self.screen_size[0]-200, 10))
 
+    def game_over(self):
+        self.surface.fill((0,0,0))
+        font = pygame.font.SysFont('arial', 30)
+        line1 = font.render(f"GAME OVER", True, (255, 255, 255))
+        text_rect1 = line1.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2-50))
+        self.surface.blit(line1, text_rect1)
+        line2 = font.render(f"Score: {self.score}", True, (255, 255, 255))
+        text_rect2 = line2.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2))
+        self.surface.blit(line2, text_rect2)
+
+        line3 = font.render("Click Enter to play again, Escape to exit", True, (255, 255, 255))
+        text_rect3 = line3.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2+50))
+        self.surface.blit(line3, text_rect3)
+        pygame.display.flip()
+
+    def reset(self):
+        self.snake = Snake(self.surface, self.screen_size, self.block_size, 2)
+        self.food = Food(self.surface, self.screen_size, self.block_size)
+
     def run(self):
         running = True
+        pause = False
 
         while running:
             for event in pygame.event.get():
                 if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
                     running = False
-                
+
                 if event.type == KEYDOWN:
-                    if event.key == K_UP:
-                        self.snake.move_up()
+                    if event.key == K_RETURN:
+                        pause = False
 
-                    if event.key == K_DOWN:
-                        self.snake.move_down()
+                    if not pause:
+                        if event.key == K_UP:
+                            if self.snake.direction != 'down':
+                                self.snake.move_up()
 
-                    if event.key == K_LEFT:
-                        self.snake.move_left()
+                        if event.key == K_DOWN:
+                            if self.snake.direction != 'up':
+                                self.snake.move_down()
 
-                    if event.key == K_RIGHT:
-                        self.snake.move_right()
+                        if event.key == K_LEFT:
+                            if self.snake.direction != 'right':
+                                self.snake.move_left()
 
-            self.play()
+                        if event.key == K_RIGHT:
+                            if self.snake.direction != 'left':
+                                self.snake.move_right()
+
+            try:
+                if not pause:
+                    self.play()
+            except Exception as e:
+                self.game_over()
+                pause = True
+                self.reset()
             time.sleep(0.1)
 
 if __name__=='__main__':
