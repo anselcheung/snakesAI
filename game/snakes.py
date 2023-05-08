@@ -2,6 +2,7 @@ import pygame
 from pygame.locals import *
 import time
 import random
+import numpy as np
 
 class Food:
     def __init__(self, parent_screen, screen_size, block_size):
@@ -103,96 +104,105 @@ class Game:
         self.food = Food(self.surface, self.screen_size, self.block_size)
         self.food.draw()
 
+        # reward
+        self.reward = 0
+        self.frame_iteration = 0
+        
+        # game_over
+        self.game_over = False
+
     def is_collision(self, x1, y1, x2, y2):
         if x1 >= x2 and x1 < x2 + self.block_size[0] and y1 >= y2 and y1 < y2 + self.block_size[1]:
             return True
         return False
 
     def play(self):
+        self.frame_iteration += 1
         self.snake.walk()
         self.food.draw()
-        self.display_score()
+        # self.display_score()
         pygame.display.flip()
+
+        # reset reward at each movement frame
+        self.reward = 0
 
         # snake eating apple
         if self.is_collision(self.snake.x[0], self.snake.y[0], self.food.x, self.food.y):
             self.snake.increase_length()
             self.food.move()
             self.score += 1
+            self.reward = 10
 
         # snake hit itself
         for i in range(1, self.snake.length):
             if self.is_collision(self.snake.x[0], self.snake.y[0], self.snake.x[i], self.snake.y[i]):
-                raise "Game Over"
+                self.reward = -10
+                self.game_over = True
             
         # snake go out of bounds
-        if self.snake.x[0] <= 0 or self.snake.y[0] <= 0 or self.snake.x[0] >= self.screen_size[0] or self.snake.y[0] >= self.screen_size[1]:
-            raise "Game Over"
+        if self.snake.x[0] <= 0 or self.snake.y[0] <= 0 or self.snake.x[0] >= self.screen_size[0] or self.snake.y[0] >= self.screen_size[1] or self.frame_iteration > 100*(self.snake.length):
+            self.reward = -10
+            self.game_over = True
 
-    def display_score(self):
-        font = pygame.font.SysFont('arial', 30)
-        score = font.render(f"Score: {self.score}", True, (255, 255, 255))
-        self.surface.blit(score, (self.screen_size[0]-200, 10))
+    # def display_score(self):
+    #     font = pygame.font.SysFont('arial', 30)
+    #     score = font.render(f"Score: {self.score}", True, (255, 255, 255))
+    #     self.surface.blit(score, (self.screen_size[0]-200, 10))
 
-    def game_over(self):
-        self.surface.fill((0,0,0))
-        font = pygame.font.SysFont('arial', 30)
-        line1 = font.render(f"GAME OVER", True, (255, 255, 255))
-        text_rect1 = line1.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2-50))
-        self.surface.blit(line1, text_rect1)
-        line2 = font.render(f"Score: {self.score}", True, (255, 255, 255))
-        text_rect2 = line2.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2))
-        self.surface.blit(line2, text_rect2)
+    # def game_over(self):
+    #     self.surface.fill((0,0,0))
+    #     font = pygame.font.SysFont('arial', 30)
+    #     line1 = font.render(f"GAME OVER", True, (255, 255, 255))
+    #     text_rect1 = line1.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2-50))
+    #     self.surface.blit(line1, text_rect1)
+    #     line2 = font.render(f"Score: {self.score}", True, (255, 255, 255))
+    #     text_rect2 = line2.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2))
+    #     self.surface.blit(line2, text_rect2)
 
-        line3 = font.render("Click Enter to play again, Escape to exit", True, (255, 255, 255))
-        text_rect3 = line3.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2+50))
-        self.surface.blit(line3, text_rect3)
-        pygame.display.flip()
+    #     line3 = font.render("Click Enter to play again, Escape to exit", True, (255, 255, 255))
+    #     text_rect3 = line3.get_rect(center=(self.screen_size[0]//2, self.screen_size[1]//2+50))
+    #     self.surface.blit(line3, text_rect3)
+    #     pygame.display.flip()
 
     def reset(self):
         self.snake = Snake(self.surface, self.screen_size, self.block_size, 2)
         self.food = Food(self.surface, self.screen_size, self.block_size)
         self.score = 0
+        self.frame_iteration = 0
+        self.reward = 0
 
-    def run(self):
-        running = True
-        pause = False
+    def play_step(self, action=None):
+        # action: 'left' [0,0,1], 'right' [0,1,0], 'forward' [1,0,0]
+        clockwise_dir = ['right', 'down', 'left', 'up']
+        curr_dir_idx = clockwise_dir.index(self.snake.direction)
 
-        while running:
-            for event in pygame.event.get():
-                if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-                    running = False
+        if np.array_equal(action, [0, 1, 0]):
+            new_dir = clockwise_dir[(curr_dir_idx+1)%4]
+        elif np.array_equal(action, [0,0,1]):
+            new_dir = clockwise_dir[(curr_dir_idx-1)%4]
+        else:
+            new_dir = clockwise_dir[curr_dir_idx]
 
-                if event.type == KEYDOWN:
-                    if event.key == K_RETURN:
-                        pause = False
+        for event in pygame.event.get():
+            if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
+                pygame.quit()
+                quit()
 
-                    if not pause:
-                        if event.key == K_UP:
-                            if self.snake.direction != 'down':
-                                self.snake.move_up()
+            if self.snake.direction != 'down' and new_dir == 'up':
+                self.snake.move_up()
 
-                        if event.key == K_DOWN:
-                            if self.snake.direction != 'up':
-                                self.snake.move_down()
+            if self.snake.direction != 'up' and new_dir == 'down':
+                self.snake.move_down()
 
-                        if event.key == K_LEFT:
-                            if self.snake.direction != 'right':
-                                self.snake.move_left()
+            if self.snake.direction != 'right' and new_dir == 'left':
+                self.snake.move_left()
 
-                        if event.key == K_RIGHT:
-                            if self.snake.direction != 'left':
-                                self.snake.move_right()
+            if self.snake.direction != 'left' and new_dir == 'right':
+                self.snake.move_right()
 
-            try:
-                if not pause:
-                    self.play()
-            except Exception as e:
-                self.game_over()
-                pause = True
-                self.reset()
-            time.sleep(0.1)
+        self.play()
 
-if __name__=='__main__':
-    game = Game()
-    game.run()
+        if self.game_over:
+            return self.reward, True, self.score
+        else:
+            return self.reward, False, self.score
